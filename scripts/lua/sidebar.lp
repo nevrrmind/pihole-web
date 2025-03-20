@@ -20,6 +20,7 @@
                     <span id="status"></span><br/>
                     <span id="query_frequency"></span><br/>
                     <span id="cpu"></span><br/>
+					<span id="load"></span><br/>
                     <span id="memory"></span>
                 </div>
             </div>

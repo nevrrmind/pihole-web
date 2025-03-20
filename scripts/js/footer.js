@@ -53,28 +53,22 @@ function piholeChanged(blocking, timer = null) {
       ena.hide();
       dis.show();
       dis.removeClass("active");
-
       break;
     }
-
     case "disabled": {
       status.html("<i class='fa fa-circle fa-fw text-red'></i>&nbsp;&nbsp;Blocking disabled");
       ena.show();
       dis.hide();
-
       break;
     }
-
     case "failure": {
       status.html(
         "<i class='fa-solid fa-triangle-exclamation fa-fw text-red'></i>&nbsp;&nbsp;<span class='text-red'>DNS server failure</span>"
       );
       ena.hide();
       dis.hide();
-
       break;
     }
-
     default: {
       status.html("<i class='fa fa-circle fa-fw text-red'></i>&nbsp;&nbsp;Status unknown");
       ena.hide();
@@ -336,20 +330,17 @@ function updateSystemInfo() {
         totalRAM /= 1024;
         totalRAMUnit = "GB";
       }
-
       let totalSwap = system.memory.swap.total / 1024;
       let totalSwapUnit = "MB";
       if (totalSwap > 1024) {
         totalSwap /= 1024;
         totalSwapUnit = "GB";
       }
-
       var swap =
         system.memory.swap.total > 0
           ? ((1e2 * system.memory.swap.used) / system.memory.swap.total).toFixed(1) + " %"
           : "N/A";
-      var color;
-      color = percentRAM > 75 ? "text-red" : "text-green-light";
+      var color = percentRAM > 75 ? "text-red" : "text-green-light";
       $("#memory").html(
         '<i class="fa fa-fw fa-memory ' +
           color +
@@ -372,46 +363,57 @@ function updateSystemInfo() {
         $("#sysinfo-memory-swap").text("No swap space available");
       }
 
-      color = system.cpu.load.percent[0] > 100 ? "text-red" : "text-green-light";
-      $("#cpu").html(
-        '<i class="fa fa-fw fa-microchip ' +
-          color +
-          '"></i>&nbsp;&nbsp;CPU:&nbsp;' +
-          system.cpu.load.percent[0].toFixed(1) +
-          "&thinsp;%"
-      );
-      $("#cpu").prop(
-        "title",
-        "Load: " +
-          system.cpu.load.raw[0].toFixed(2) +
-          " " +
-          system.cpu.load.raw[1].toFixed(2) +
-          " " +
-          system.cpu.load.raw[2].toFixed(2) +
-          " on " +
-          system.cpu.nprocs +
-          " core" +
-          (system.cpu.nprocs > 1 ? "s" : "") +
-          " running " +
-          system.procs +
-          " processes"
-      );
-      $("#sysinfo-cpu").text(
-        system.cpu.load.percent[0].toFixed(1) +
-          "% (load: " +
-          system.cpu.load.raw[0].toFixed(2) +
-          " " +
-          system.cpu.load.raw[1].toFixed(2) +
-          " " +
-          system.cpu.load.raw[2].toFixed(2) +
-          ") on " +
-          system.cpu.nprocs +
-          " core" +
-          (system.cpu.nprocs > 1 ? "s" : "") +
-          " running " +
-          system.procs +
-          " processes"
-      );
+      // Hole container-spezifische Daten und arbeite sie innerhalb des Callbacks ab.
+      fetch('/api/info/container', { credentials: 'include' })
+        .then(response => response.json())
+        .then(function(containerData) {
+          if (containerData.virt === "lxc") {
+            // Container-Modus: CPU- und Load-Daten anzeigen
+            $("#cpu").html(
+              '<i class="fa fa-fw fa-microchip text-green-light"></i>&nbsp;&nbsp;CPU (Container): ' +
+              containerData.cpu_usage
+            );
+            $("#load").html(
+              '<i class="fa fa-fw fa-bars-progress text-green-light"></i>&nbsp;&nbsp;' +
+              containerData.load_avg["1min"] + ', ' +
+              containerData.load_avg["5min"] + ', ' +
+              containerData.load_avg["15min"]
+            );
+            const tooltipText = "on " + containerData.nprocs + " core" +
+              (containerData.nprocs > 1 ? "s" : "") +
+              ", " + containerData.processes + " processes";
+            $("#cpu").prop("title", tooltipText);
+            $("#sysinfo-cpu").text("Prozesse: " + containerData.processes + " / CPU: " + containerData.cpu_usage);
+          } else {
+            // Host-Modus: Verwende den Standardcode
+            color = system.cpu.load.percent[0] > 100 ? "text-red" : "text-green-light";
+            $("#cpu").html(
+              '<i class="fa fa-fw fa-microchip ' + color + '"></i>&nbsp;&nbsp;CPU:&nbsp;' +
+              system.cpu.load.percent[0].toFixed(1) + "&thinsp;%"
+            );
+            $("#cpu").prop(
+              "title",
+              "Load: " +
+              system.cpu.load.raw[0].toFixed(2) + " " +
+              system.cpu.load.raw[1].toFixed(2) + " " +
+              system.cpu.load.raw[2].toFixed(2) +
+              " on " + system.cpu.nprocs + " core" + (system.cpu.nprocs > 1 ? "s" : "") +
+              " running " + system.procs + " processes"
+            );
+            $("#sysinfo-cpu").text(
+              system.cpu.load.percent[0].toFixed(1) +
+              "% (load: " +
+              system.cpu.load.raw[0].toFixed(2) + " " +
+              system.cpu.load.raw[1].toFixed(2) + " " +
+              system.cpu.load.raw[2].toFixed(2) + ") on " +
+              system.cpu.nprocs + " core" + (system.cpu.nprocs > 1 ? "s" : "") +
+              " running " + system.procs + " processes"
+            );
+          }
+        })
+        .catch(function(error) {
+          console.error("Fehler beim Abrufen container-spezifischer Daten:", error);
+        });
 
       var startdate = moment()
         .subtract(system.uptime, "seconds")
@@ -436,6 +438,7 @@ function updateSystemInfo() {
       apiFailure(data);
     });
 }
+
 
 function apiFailure(data) {
   if (data.status === 401) {
